@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: #f1f5f9;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* タップ操作しやすいよう選択不可に */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
