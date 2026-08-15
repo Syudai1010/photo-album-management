@@ -37,6 +37,28 @@ describe("弁栓 cycle: V{箇所}-{ラベル}", () => {
     ]);
   });
 
+  it("サイクル満了後に[次の箇所へ]を押しても箇所番号が飛ばない", () => {
+    // 4枚(満了→自動で次の箇所へ) の直後に [次の箇所へ] を押し、さらに2枚。
+    // 期待: V1-1..V1-4, V2-1, V2-2（V2 を飛ばして V3 にならない）
+    const seq = recomputeSequence(valve, 6, new Set([3]));
+    expect(seq.map((a) => buildStem(valve, a))).toEqual([
+      "V1-1", "V1-2", "V1-3", "V1-4",
+      "V2-1", "V2-2",
+    ]);
+  });
+
+  it("サイクル途中で[次の箇所へ]を押すと次の箇所へ進む", () => {
+    // 2枚で切り上げ → V1-1, V1-2, V2-1
+    const seq = recomputeSequence(valve, 3, new Set([1]));
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-2", "V2-1"]);
+  });
+
+  it("[次の箇所へ]を連続で押しても飛ばない", () => {
+    // 2枚 → cut → cut(2回目は空振り) → 1枚
+    const seq = recomputeSequence(valve, 3, new Set([1]));
+    expect(buildStem(valve, seq[2])).toBe("V2-1");
+  });
+
   it("ラベル番号→メモ語のマッピング", () => {
     expect(labelName(valve, 1)).toBe("全景");
     expect(labelName(valve, 2)).toBe("接写");
