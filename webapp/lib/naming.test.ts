@@ -121,3 +121,38 @@ describe("サニタイズ (pathsafe.py 相当)", () => {
     expect(extname("noext")).toBe("");
   });
 });
+
+describe("ラベルを飛ばす（同じ箇所内でラベルが無い場合）", () => {
+  it("接写が無い: V1-1 → (飛ばす) → V1-3, V1-4", () => {
+    // 1枚目のあと「飛ばす」→ 次に割り当てる写真(order=1)の前でラベルを1つ進める
+    const seq = recomputeSequence(valve, 3, new Set(), [1]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-3", "V1-4"]);
+  });
+
+  it("2つ連続で飛ばす: V1-1 → V1-4", () => {
+    const seq = recomputeSequence(valve, 2, new Set(), [1, 1]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-4"]);
+  });
+
+  it("飛ばした後もサイクル満了で次の箇所へ進む", () => {
+    // V1-1, (飛)V1-3, V1-4 → 満了 → V2-1
+    const seq = recomputeSequence(valve, 4, new Set(), [1]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-3", "V1-4", "V2-1"]);
+  });
+
+  it("最後のラベルを飛ばすと次の箇所の先頭へ", () => {
+    // V1-1,V1-2,V1-3 のあと測定を飛ばす → V2-1
+    const seq = recomputeSequence(valve, 4, new Set(), [3]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-2", "V1-3", "V2-1"]);
+  });
+
+  it("先頭で飛ばす（全景が無い）: V1-2 から始まる", () => {
+    const seq = recomputeSequence(valve, 2, new Set(), [0]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-2", "V1-3"]);
+  });
+
+  it("serial(全景 P型)では飛ばしは無効", () => {
+    const seq = recomputeSequence(panorama, 2, new Set(), [1]);
+    expect(seq.map((a) => buildStem(panorama, a))).toEqual(["P01", "P02"]);
+  });
+});
