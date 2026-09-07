@@ -17,6 +17,7 @@ export default function Home() {
   const setSortByDate = useApp((s) => s.setSortByDate);
   const setSortByName = useApp((s) => s.setSortByName);
   const fileInput = useRef<HTMLInputElement>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => init(), [init]);
 
@@ -45,12 +46,27 @@ export default function Home() {
           </button>
         ) : (
           <>
+            {/* iOS Safari は webkitdirectory 非対応のため、写真ライブラリから直接選ぶ導線を主にする */}
             <button
-              onClick={() => fileInput.current?.click()}
+              onClick={() => photoInput.current?.click()}
               className="rounded bg-brand px-4 py-2 font-medium text-white hover:bg-brand-dark"
             >
-              写真フォルダを選ぶ
+              写真を選ぶ
             </button>
+            <button
+              onClick={() => fileInput.current?.click()}
+              className="rounded border border-brand px-3 py-2 font-medium text-brand-dark hover:bg-brand/5"
+            >
+              フォルダから
+            </button>
+            <input
+              ref={photoInput}
+              type="file"
+              multiple
+              accept="image/*"
+              hidden
+              onChange={(e) => e.target.files && openFallback(e.target.files)}
+            />
             <input
               ref={fileInput}
               type="file"
