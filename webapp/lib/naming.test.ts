@@ -37,6 +37,28 @@ describe("弁栓 cycle: V{箇所}-{ラベル}", () => {
     ]);
   });
 
+  it("サイクル満了後に[次の箇所へ]を押しても箇所番号が飛ばない", () => {
+    // 4枚(満了→自動で次の箇所へ) の直後に [次の箇所へ] を押し、さらに2枚。
+    // 期待: V1-1..V1-4, V2-1, V2-2（V2 を飛ばして V3 にならない）
+    const seq = recomputeSequence(valve, 6, new Set([3]));
+    expect(seq.map((a) => buildStem(valve, a))).toEqual([
+      "V1-1", "V1-2", "V1-3", "V1-4",
+      "V2-1", "V2-2",
+    ]);
+  });
+
+  it("サイクル途中で[次の箇所へ]を押すと次の箇所へ進む", () => {
+    // 2枚で切り上げ → V1-1, V1-2, V2-1
+    const seq = recomputeSequence(valve, 3, new Set([1]));
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-2", "V2-1"]);
+  });
+
+  it("[次の箇所へ]を連続で押しても飛ばない", () => {
+    // 2枚 → cut → cut(2回目は空振り) → 1枚
+    const seq = recomputeSequence(valve, 3, new Set([1]));
+    expect(buildStem(valve, seq[2])).toBe("V2-1");
+  });
+
   it("ラベル番号→メモ語のマッピング", () => {
     expect(labelName(valve, 1)).toBe("全景");
     expect(labelName(valve, 2)).toBe("接写");
@@ -97,5 +119,40 @@ describe("サニタイズ (pathsafe.py 相当)", () => {
     expect(extname("IMG_0001.JPG")).toBe(".jpg");
     expect(extname("photo.heic")).toBe(".heic");
     expect(extname("noext")).toBe("");
+  });
+});
+
+describe("ラベルを飛ばす（同じ箇所内でラベルが無い場合）", () => {
+  it("接写が無い: V1-1 → (飛ばす) → V1-3, V1-4", () => {
+    // 1枚目のあと「飛ばす」→ 次に割り当てる写真(order=1)の前でラベルを1つ進める
+    const seq = recomputeSequence(valve, 3, new Set(), [1]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-3", "V1-4"]);
+  });
+
+  it("2つ連続で飛ばす: V1-1 → V1-4", () => {
+    const seq = recomputeSequence(valve, 2, new Set(), [1, 1]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-4"]);
+  });
+
+  it("飛ばした後もサイクル満了で次の箇所へ進む", () => {
+    // V1-1, (飛)V1-3, V1-4 → 満了 → V2-1
+    const seq = recomputeSequence(valve, 4, new Set(), [1]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-3", "V1-4", "V2-1"]);
+  });
+
+  it("最後のラベルを飛ばすと次の箇所の先頭へ", () => {
+    // V1-1,V1-2,V1-3 のあと測定を飛ばす → V2-1
+    const seq = recomputeSequence(valve, 4, new Set(), [3]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-1", "V1-2", "V1-3", "V2-1"]);
+  });
+
+  it("先頭で飛ばす（全景が無い）: V1-2 から始まる", () => {
+    const seq = recomputeSequence(valve, 2, new Set(), [0]);
+    expect(seq.map((a) => buildStem(valve, a))).toEqual(["V1-2", "V1-3"]);
+  });
+
+  it("serial(全景 P型)では飛ばしは無効", () => {
+    const seq = recomputeSequence(panorama, 2, new Set(), [1]);
+    expect(seq.map((a) => buildStem(panorama, a))).toEqual(["P01", "P02"]);
   });
 });

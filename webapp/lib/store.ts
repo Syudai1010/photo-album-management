@@ -46,6 +46,7 @@ interface AppState {
   templateId: string;
   order: string[]; // 選択された photo id（タップ順）
   cuts: number[]; // 「次の箇所へ」を切ったorderインデックス（そのorderの後に切替）
+  skips: number[]; // 「ラベルを飛ばす」を押した位置（次に割り当てる写真のorderインデックス。重複可）
 
   // ---- リネーム結果 ----
   lastUndoMap: { oldName: string; newName: string }[] | null;
@@ -64,6 +65,8 @@ interface AppState {
   setTemplates: (t: Template[]) => void;
   toggle: (id: string) => void;
   cutHere: () => void;
+  skipLabelHere: () => void;
+  undoSkip: () => void;
   clearSelection: () => void;
   setUndoMap: (m: { oldName: string; newName: string }[] | null) => void;
 
@@ -85,6 +88,7 @@ export const useApp = create<AppState>((set, get) => ({
   templateId: DEFAULT_TEMPLATES[0].id,
   order: [],
   cuts: [],
+  skips: [],
 
   lastUndoMap: null,
   album: { sheets: [] },
@@ -103,6 +107,7 @@ export const useApp = create<AppState>((set, get) => ({
         loadMode: "direct",
         order: [],
         cuts: [],
+        skips: [],
         lastUndoMap: null,
       });
     } finally {
@@ -118,7 +123,7 @@ export const useApp = create<AppState>((set, get) => ({
       const files = await enumerateDirectory(dirHandle);
       const photos = await toPhotoItems(files);
       revokeAll(get().photos);
-      set({ photos: sortByDate(photos, true), order: [], cuts: [] });
+      set({ photos: sortByDate(photos, true), order: [], cuts: [], skips: [] });
     } finally {
       set({ loading: false });
     }
@@ -136,6 +141,7 @@ export const useApp = create<AppState>((set, get) => ({
         loadMode: "fallback",
         order: [],
         cuts: [],
+        skips: [],
         lastUndoMap: null,
       });
     } finally {
@@ -147,19 +153,21 @@ export const useApp = create<AppState>((set, get) => ({
   setSortByName: () =>
     set({ photos: get().photos.slice().sort((a, b) => a.name.localeCompare(b.name)) }),
 
-  setTemplate: (id) => set({ templateId: id, order: [], cuts: [] }),
+  setTemplate: (id) => set({ templateId: id, order: [], cuts: [], skips: [] }),
   setTemplates: (t) => set({ templates: t }),
 
   toggle: (id) => {
-    const { order, cuts } = get();
+    const { order, cuts, skips } = get();
     const pos = order.indexOf(id);
     if (pos >= 0) {
-      // 選択解除: pos を除去し、後続の cut インデックスを1つ前へずらす
+      // 選択解除: pos を除去し、後続の cut / skip インデックスを1つ前へずらす。
+      // skip は「その写真の前」に付くので pos のものは残し、次に来る写真の前に引き継ぐ。
       const newOrder = order.filter((x) => x !== id);
       const newCuts = cuts
         .filter((c) => c !== pos)
         .map((c) => (c > pos ? c - 1 : c));
-      set({ order: newOrder, cuts: newCuts });
+      const newSkips = skips.map((k) => (k > pos ? k - 1 : k));
+      set({ order: newOrder, cuts: newCuts, skips: newSkips });
     } else {
       set({ order: [...order, id] });
     }
@@ -172,7 +180,23 @@ export const useApp = create<AppState>((set, get) => ({
     if (!cuts.includes(idx)) set({ cuts: [...cuts, idx] });
   },
 
-  clearSelection: () => set({ order: [], cuts: [] }),
+  // 「ラベルを飛ばす」: 次に割り当てる写真の前でラベルを1つ進める（例: 接写が無い → V1-1 の次が V1-3）
+  skipLabelHere: () => {
+    const { order, skips } = get();
+    set({ skips: [...skips, order.length] });
+  },
+
+  // 直前の「ラベルを飛ばす」を取り消す（まだ写真を割り当てていない分のみ）
+  undoSkip: () => {
+    const { order, skips } = get();
+    const idx = skips.lastIndexOf(order.length);
+    if (idx < 0) return;
+    const next = skips.slice();
+    next.splice(idx, 1);
+    set({ skips: next });
+  },
+
+  clearSelection: () => set({ order: [], cuts: [], skips: [] }),
 
   setUndoMap: (m) => set({ lastUndoMap: m }),
 
@@ -227,7 +251,7 @@ export function currentTemplate(state: AppState): Template {
 /** 選択順の Assignment 配列を計算 */
 export function currentAssignments(state: AppState): Assignment[] {
   const tpl = currentTemplate(state);
-  return recomputeSequence(tpl, state.order.length, new Set(state.cuts));
+  return recomputeSequence(tpl, state.order.length, new Set(state.cuts), state.skips);
 }
 
 export interface PlanRow {

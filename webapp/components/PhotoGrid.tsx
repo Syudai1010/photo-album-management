@@ -8,13 +8,14 @@ export function PhotoGrid() {
   const photos = useApp((s) => s.photos);
   const order = useApp((s) => s.order);
   const cuts = useApp((s) => s.cuts);
+  const skips = useApp((s) => s.skips);
   const templateId = useApp((s) => s.templateId);
   const templates = useApp((s) => s.templates);
   const toggle = useApp((s) => s.toggle);
 
   // 選択順 index と割り当て名を計算
   const info = useMemo(() => {
-    const state = { templates, templateId, order, cuts } as Parameters<typeof currentAssignments>[0];
+    const state = { templates, templateId, order, cuts, skips } as Parameters<typeof currentAssignments>[0];
     const tpl = currentTemplate(state);
     const assigns = currentAssignments(state);
     const map = new Map<string, { pos: number; badge: string; label: string }>();
@@ -28,7 +29,7 @@ export function PhotoGrid() {
     });
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photos, order, cuts, templateId, templates]);
+  }, [photos, order, cuts, skips, templateId, templates]);
 
   if (photos.length === 0) {
     return (
